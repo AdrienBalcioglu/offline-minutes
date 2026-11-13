@@ -2,6 +2,8 @@
 
 Record a meeting, transcribe it on your own computer, and write the minutes next to the transcript.
 
+**[Try it live](https://adrienbalcioglu.github.io/offline-minutes/)**
+
 ## Features
 
 - Record from the microphone, or transcribe an audio file you already have
