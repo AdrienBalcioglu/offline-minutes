@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offline Minutes</title>
+<style>:root{--bg:#f7f7f5;--panel:#fff;--ink:#1c1c1a;--muted:#6b6b66;--line:#e3e3de;--accent:#3d5afe;--accent-ink:#fff;--good:#1a7f4b;--bad:#b3261e;--warn:#9a6700;--soft:#eef0ff;--radius:10px;--mono:ui-monospace,SFMono-Regular,Menlo,monospace}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--panel:#1d1d1b;--ink:#ececE6;--muted:#9a9a93;--line:#30302c;--accent:#8c9eff;--accent-ink:#11122b;--good:#5fd39a;--bad:#ff8a80;--warn:#e3b341;--soft:#23264a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:28px 16px 64px}
+header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;margin-bottom:20px}
+h1{font-size:24px;margin:0;letter-spacing:-.01em}
+h2{font-size:15px;margin:0 0 10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600}
+p.lead{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.grid{display:grid;gap:16px}
+@media(min-width:820px){.cols-2{grid-template-columns:1fr 1fr}.cols-3{grid-template-columns:repeat(3,1fr)}.side{grid-template-columns:340px 1fr}}
+label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+input,select,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+textarea{min-height:120px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.field{margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;font-weight:600;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+button.ghost{border-color:transparent;color:var(--muted);padding:4px 8px}
+button:disabled{opacity:.5;cursor:not-allowed}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+td input{padding:5px 7px}
+.scroll{overflow-x:auto}
+.stat{font-size:28px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.stat small{display:block;font-size:12px;font-weight:500;color:var(--muted);letter-spacing:0}
+.muted{color:var(--muted)}.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+.tag{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:var(--soft);color:var(--accent)}
+.out{white-space:pre-wrap;word-wrap:break-word;font-size:14.5px;min-height:120px}
+.out.mono,code{font-family:var(--mono);font-size:13px}
+.note{font-size:13px;color:var(--muted)}
+footer{margin-top:28px;font-size:13px;color:var(--muted)}
+footer a{color:inherit}
+
+#record.on{background:var(--bad);border-color:var(--bad);color:#fff}
+.actions td{padding:4px 6px 4px 0;border:0}
+@media print{header .row,.noprint,footer{display:none!important}textarea,input{border:0!important;background:transparent!important}}
+</style>
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <h1>Offline Minutes</h1>
+      <p class="lead">Record a meeting, get the transcript on your own computer, and write the minutes next to it. The audio is never uploaded.</p>
+    </div>
+    <div class="row">
+      <button id="md">Copy minutes</button>
+      <button id="save">Download .md</button>
+      <button id="print">Print / PDF</button>
+      <button id="reset" class="ghost">New meeting</button>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="grid cols-3">
+      <div class="field"><label for="title">Meeting</label><input id="title" data-k="title" placeholder="Weekly product sync"></div>
+      <div class="field"><label for="date">Date</label><input id="date" data-k="date" type="date"></div>
+      <div class="field"><label for="people">Attendees</label><input id="people" data-k="people" placeholder="Ana, Marc, Leïla"></div>
+    </div>
+  </section>
+
+  <div class="grid cols-2">
+    <section class="panel">
+      <h2>Transcript</h2>
+      <div class="grid cols-2 noprint">
+        <div class="field"><label for="voiceModel">Speech model</label><select id="voiceModel"></select></div>
+        <div class="field"><label for="voiceLang">Spoken language</label><select id="voiceLang"></select></div>
+      </div>
+      <div class="row noprint" style="margin-bottom:10px">
+        <button id="record" class="primary">● Record</button>
+        <button id="pick">Transcribe an audio file</button>
+        <input id="file" type="file" accept="audio/*,video/mp4,video/webm" hidden>
+      </div>
+      <p id="status" class="note noprint" role="status"></p>
+      <textarea id="transcript" data-k="transcript" style="min-height:340px" placeholder="The transcript appears here. You can also type or paste notes."></textarea>
+      <p class="note noprint">The speech model does not tell speakers apart and makes mistakes on names and figures. Check them before you share the minutes. Ask the people in the room before you record.</p>
+    </section>
+
+    <section class="panel">
+      <h2>Minutes</h2>
+      <div class="field"><label for="decisions">Decisions, one per line</label><textarea id="decisions" data-k="decisions" style="min-height:110px"></textarea></div>
+      <label>Actions</label>
+      <table class="actions"><tbody id="actions"></tbody></table>
+      <button id="addAction" class="noprint" style="margin:6px 0 14px">+ Add action</button>
+      <div class="field"><label for="questions">Open questions, one per line</label><textarea id="questions" data-k="questions" style="min-height:90px"></textarea></div>
+    </section>
+  </div>
+  <footer>MIT license · © 2026 Adrien Balcioglu · Runs entirely in your browser: no account, no API key, no server.</footer>
+</main>
+<script>
+// Local speech-to-text: Whisper runs in a Web Worker in this browser (WebAssembly).
+// The audio is never uploaded. Only the model files are downloaded, once, then cached.
+const WHISPER_MODELS = {
+  "onnx-community/whisper-tiny": "Fast · 41 MB download",
+  "onnx-community/whisper-base": "Balanced · 77 MB download",
+  "onnx-community/whisper-small": "Most accurate · 249 MB download",
+};
+const WHISPER_LANGUAGES = { "": "Detect language", french: "French", english: "English", spanish: "Spanish", german: "German", italian: "Italian", portuguese: "Portuguese" };
+
+const WORKER_SOURCE = `
+import { pipeline } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.2";
+let transcriber = null, loadedModel = null;
+self.onmessage = async (event) => {
+  const { id, audio, model, language } = event.data;
+  try {
+    if (loadedModel !== model) {
+      transcriber = await pipeline("automatic-speech-recognition", model, {
+        dtype: "q8",
+        progress_callback: (p) => { if (p.status === "progress") self.postMessage({ id, type: "progress", file: p.file, loaded: p.loaded, total: p.total }); },
+      });
+      loadedModel = model;
+    }
+    self.postMessage({ id, type: "status", text: "Transcribing on this device…" });
+    const options = { chunk_length_s: 30, stride_length_s: 5 };
+    if (language) { options.language = language; options.task = "transcribe"; }
+    const output = await transcriber(audio, options);
+    self.postMessage({ id, type: "done", text: (output.text || "").trim() });
+  } catch (error) {
+    self.postMessage({ id, type: "error", message: String(error && error.message ? error.message : error) });
+  }
+};`;
+
+let whisperWorker = null, jobId = 0;
+function getWorker() {
+  if (!whisperWorker) whisperWorker = new Worker(URL.createObjectURL(new Blob([WORKER_SOURCE], { type: "text/javascript" })), { type: "module" });
+  return whisperWorker;
+}
+
+/** Transcribes 16 kHz mono samples. onStatus receives short progress messages. */
+function transcribe(samples, { model, language, onStatus }) {
+  return new Promise((resolve, reject) => {
+    const worker = getWorker(), id = ++jobId, files = {};
+    const listener = (event) => {
+      const m = event.data; if (m.id !== id) return;
+      if (m.type === "progress") {
+        files[m.file] = [m.loaded || 0, m.total || 0];
+        const loaded = Object.values(files).reduce((s, f) => s + f[0], 0), total = Object.values(files).reduce((s, f) => s + f[1], 0);
+        onStatus?.(`Downloading the speech model, once: ${(loaded / 1e6).toFixed(0)} of ${(total / 1e6).toFixed(0)} MB`);
+      } else if (m.type === "status") onStatus?.(m.text);
+      else { worker.removeEventListener("message", listener); m.type === "done" ? resolve(m.text) : reject(new Error(m.message)); }
+    };
+    worker.addEventListener("message", listener);
+    worker.addEventListener("error", (e) => reject(new Error(e.message || "The speech engine could not start.")), { once: true });
+    onStatus?.("Starting the speech engine…");
+    worker.postMessage({ id, audio: samples, model, language }, [samples.buffer]);
+  });
+}
+
+/** Decodes any audio blob the browser can read into 16 kHz mono samples. */
+async function toSamples(blob) {
+  const context = new AudioContext({ sampleRate: 16000 });
+  try {
+    const buffer = await context.decodeAudioData(await blob.arrayBuffer());
+    const mono = new Float32Array(buffer.length);
+    for (let c = 0; c < buffer.numberOfChannels; c++) {
+      const data = buffer.getChannelData(c);
+      for (let i = 0; i < data.length; i++) mono[i] += data[i] / buffer.numberOfChannels;
+    }
+    return mono;
+  } finally { context.close(); }
+}
+
+/** Microphone recorder. start() asks for permission; stop() resolves with the recorded blob. */
+function createRecorder() {
+  let recorder = null, stream = null, chunks = [];
+  return {
+    get active() { return !!recorder; },
+    async start() {
+      if (!navigator.mediaDevices?.getUserMedia) throw new Error("This browser cannot record audio here. Open the page over https or from localhost.");
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch { throw new Error("Microphone access was refused. Allow it in the browser to record."); }
+      chunks = []; recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+      recorder.start(1000);
+    },
+    stop() {
+      return new Promise((resolve) => {
+        if (!recorder) return resolve(null);
+        recorder.onstop = () => {
+          const blob = new Blob(chunks, { type: recorder.mimeType });
+          stream.getTracks().forEach((t) => t.stop());
+          recorder = null; stream = null; resolve(blob);
+        };
+        recorder.stop();
+      });
+    },
+  };
+}
+
+function fillSelect(select, entries, value) {
+  select.innerHTML = "";
+  for (const [v, label] of Object.entries(entries)) { const o = document.createElement("option"); o.value = v; o.textContent = label; select.append(o); }
+  if (value !== undefined) select.value = value;
+}
+
+const KEY = 'offline-minutes-v1';
+const $ = (id) => document.getElementById(id);
+const blank = () => ({ title: '', date: new Date().toISOString().slice(0, 10), people: '', transcript: '', decisions: '', questions: '', actions: [{ what: '', who: '', due: '' }], model: 'onnx-community/whisper-base', lang: '' });
+let state = load();
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && Array.isArray(s.actions)) return { ...blank(), ...s }; } catch {}
+  return blank();
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {} }
+
+function renderActions() {
+  const body = $('actions'); body.innerHTML = '';
+  state.actions.forEach((a, i) => {
+    const tr = document.createElement('tr');
+    for (const [k, ph, w] of [['what', 'What', '52%'], ['who', 'Owner', '22%'], ['due', 'Due', '18%']]) {
+      const td = document.createElement('td'); td.style.width = w;
+      const input = document.createElement('input'); input.value = a[k]; input.placeholder = ph; input.dataset.i = i; input.dataset.a = k; input.setAttribute('aria-label', ph);
+      td.append(input); tr.append(td);
+    }
+    const td = document.createElement('td'); const del = document.createElement('button'); del.className = 'ghost noprint'; del.textContent = '✕'; del.dataset.del = i; del.setAttribute('aria-label', 'Delete action');
+    td.append(del); tr.append(td); body.append(tr);
+  });
+}
+function render() {
+  document.querySelectorAll('[data-k]').forEach((el) => { el.value = state[el.dataset.k] ?? ''; });
+  fillSelect($('voiceModel'), WHISPER_MODELS, state.model);
+  fillSelect($('voiceLang'), WHISPER_LANGUAGES, state.lang);
+  renderActions();
+}
+document.addEventListener('input', (e) => {
+  const t = e.target;
+  if (t.dataset.k) state[t.dataset.k] = t.value;
+  else if (t.dataset.a) state.actions[+t.dataset.i][t.dataset.a] = t.value;
+  else return;
+  save();
+});
+$('voiceModel').addEventListener('change', (e) => { state.model = e.target.value; save(); });
+$('voiceLang').addEventListener('change', (e) => { state.lang = e.target.value; save(); });
+$('addAction').addEventListener('click', () => { state.actions.push({ what: '', who: '', due: '' }); save(); renderActions(); });
+$('actions').addEventListener('click', (e) => { if (e.target.dataset.del === undefined) return; state.actions.splice(+e.target.dataset.del, 1); save(); renderActions(); });
+
+async function run(blob) {
+  const status = $('status');
+  $('record').disabled = $('pick').disabled = true;
+  try {
+    status.textContent = 'Reading the audio…';
+    const samples = await toSamples(blob);
+    const minutes = samples.length / 16000 / 60;
+    const text = await transcribe(samples, { model: state.model, language: state.lang, onStatus: (m) => { status.textContent = m + (m.startsWith('Transcribing') && minutes > 3 ? ` About ${minutes.toFixed(0)} minutes of audio: this can take a while.` : ''); } });
+    if (!text) { status.textContent = 'Nothing was heard in that audio.'; return; }
+    state.transcript = (state.transcript ? state.transcript.trimEnd() + '\n\n' : '') + text;
+    $('transcript').value = state.transcript; save();
+    status.textContent = 'Transcript added.';
+  } catch (error) { status.textContent = 'Transcription failed: ' + error.message; }
+  finally { $('record').disabled = $('pick').disabled = false; }
+}
+
+const recorder = createRecorder();
+let startedAt = 0, ticker = null;
+$('record').addEventListener('click', async () => {
+  const button = $('record');
+  if (!recorder.active) {
+    try { await recorder.start(); } catch (error) { $('status').textContent = error.message; return; }
+    startedAt = Date.now(); button.classList.add('on');
+    const tick = () => { const s = Math.floor((Date.now() - startedAt) / 1000); button.textContent = `■ Stop (${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')})`; };
+    tick(); ticker = setInterval(tick, 500); $('status').textContent = 'Recording. Keep this tab open.';
+    return;
+  }
+  clearInterval(ticker); button.classList.remove('on'); button.textContent = '● Record';
+  run(await recorder.stop());
+});
+$('pick').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) run(f); });
+
+function markdown() {
+  const lines = (s) => s.split('\n').map((l) => l.trim()).filter(Boolean);
+  const list = (s) => lines(s).map((l) => `- ${l}`).join('\n') || '_None._';
+  const actions = state.actions.filter((a) => a.what.trim());
+  return `# ${state.title.trim() || 'Meeting minutes'}\n\n**Date:** ${state.date || '–'}  \n**Attendees:** ${state.people.trim() || '–'}\n\n## Decisions\n\n${list(state.decisions)}\n\n## Actions\n\n` +
+    (actions.length ? '| Action | Owner | Due |\n| --- | --- | --- |\n' + actions.map((a) => `| ${a.what.trim()} | ${a.who.trim() || '–'} | ${a.due.trim() || '–'} |`).join('\n') : '_None._') +
+    `\n\n## Open questions\n\n${list(state.questions)}\n` + (state.transcript.trim() ? `\n## Transcript\n\n${state.transcript.trim()}\n` : '');
+}
+function download(name, content) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([content], { type: 'text/markdown' })); a.download = name; a.click(); URL.revokeObjectURL(a.href); }
+$('md').addEventListener('click', async () => { try { await navigator.clipboard.writeText(markdown()); $('status').textContent = 'Minutes copied as Markdown.'; } catch { download('minutes.md', markdown()); } });
+$('save').addEventListener('click', () => download(`minutes-${state.date || 'meeting'}.md`, markdown()));
+$('print').addEventListener('click', () => window.print());
+$('reset').addEventListener('click', () => { if (!confirm('Clear this meeting and start a new one?')) return; state = { ...blank(), model: state.model, lang: state.lang }; save(); render(); $('status').textContent = ''; });
+render();
+</script>
+</body>
+</html>
